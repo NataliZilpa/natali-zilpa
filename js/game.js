@@ -1,9 +1,13 @@
 'use strict'
 var SIZE = 4;
-var MINE = '@'
-var FLAG = '&'
-var firstClick=true;
+var MINE = 'פצצה'
+var FLAG = 'דגל'
+var firstClick = true;
 var gboard = [];
+var gTimerIntervalId;
+var gStartTimer;
+var gneighbors=[];
+var l=1;
 var gGame = {
     isOn: false,
     shownCount: 0,
@@ -11,25 +15,31 @@ var gGame = {
     secsPassed: 0
 }
 
+
 function initGame() {
     gGame.isOn = true;
     gboard = buildBoard()
     renderBoard(gboard)
-    getMineBoard()
 }
 
-initGame()
 
-function chooseLevel(){
-    //לעשות שהשחק יבחר את הרמה בכפתור
-    var level=[];
-    for(var i=0;i<3;i++){
-        level[i]=SIZE;
-        console.log(level[i]);
-       if(i!==2) SIZE+=4;
-    }
+function chooseLevel() {
+    l++;
+        if(l===4){
+            SIZE=4;
+            gboard = buildBoard()
+            renderBoard(gboard)
+            return;
+        } 
+        SIZE += 4;
+        gboard = buildBoard()
+        renderBoard(gboard)
 }
 
+function RenderCell(location, value) {
+    var elCell = document.querySelector(location);
+    elCell.innerText= value;
+  }
 
 function buildBoard() {
     var board = [];
@@ -48,7 +58,6 @@ function buildBoard() {
 }
 
 function renderBoard(board) {
-    
     var strHtml = '';
     for (var i = 0; i < board.length; i++) {
         strHtml += '<tr>';
@@ -56,7 +65,7 @@ function renderBoard(board) {
             if (board[i][j].mine) board[i][j].mine = false;
             else var cell = board[i][j].a;
             var tdId = `${i}-${j}`;
-            var className = 'cell';
+            var className = 'cell cell' + i + '-' + j;;
             strHtml += `<td id="${tdId}" class="${className}" onclick="cellClicked(this)"; oncontextmenu="cellMarked(this,gboard)">
                             ${cell}
                         </td>`
@@ -74,52 +83,146 @@ function renderBoard(board) {
 
 
 function findMine(gboard, { i: i, j: j }) {
-    var count = 0;
-    //קדימה
-    if (gboard[i - 1][j].mine) count++;
-    //אחורה
-    if (gboard[i + 1][j].mine) count++;
-    //ימינה
-    if (gboard[i][j + 1].mine) count++;
-    //שמאלה
-    if (gboard[i][j - 1].mine) count++;
-    // למעלה ימינה באלכסון
-    if (gboard[i - 1][j + 1].mine) count++;
-    //שמאלה באלכסון למעלה
-    if (gboard[i - 1][j - 1].mine) count++;
-    //שמאלה באלכסון למטה
-    if (gboard[i + 1][j - 1].mine) count++;
-    //ימינה באלכסון למטה
-    if (gboard[i + 1][j + 1].mine) count++;
+    var count = 0; 
+    var I=0;
+    if(i===0 && j===0){
+        gneighbors[I]={i:i + 1, j:j }
+        if (gboard[i + 1][j].mine) count++;//אחורה
+        gneighbors[I++]={i:i, j:j+1 }
+        if (gboard[i][j + 1].mine) count++;//ימינה
+        gneighbors[I++]={i:i+1, j:j+1 }
+        if (gboard[i + 1][j + 1].mine) count++; //ימינה באלכסון למטה
+        return count;
+    }
+    if(i===gboard.length-1 && j===gboard.length-1){
+        gneighbors[I]={i:i - 1, j:j }
+        if (gboard[i - 1][j].mine) count++;//קדימה
+        gneighbors[I++]={i:i-1, j:j-1 } 
+        if (gboard[i - 1][j - 1].mine) count++;//שמאלה באלכסון למעלה
+        gneighbors[I++]={i:i, j:j-1 } 
+        if (gboard[i][j - 1].mine) count++; //שמאלה
+            return count;
+    }
+    if(i===gboard.length-1 && j===0){
+        gneighbors[I]={i:i, j:j+1 }
+        if (gboard[i][j + 1].mine) count++;//ימינה
+        gneighbors[I++]={i:i - 1, j:j }
+        if (gboard[i - 1][j].mine) count++;//קדימה
+        gneighbors[I++]={i:i - 1, j:j+1 }
+        if(gboard[i-1][j+1].mine)count++//ימינה באלכסון למעלה
+          return count;
+    }
+    if(i===0 && j===gboard.length-1){
+        gneighbors[I]={i:i + 1, j:j }
+        if (gboard[i + 1][j].mine) count++;//אחורה
+        gneighbors[I++]={i:i, j:j+1 }  
+        if (gboard[i][j - 1].mine) count++; //שמאלה
+        gneighbors[I++]={i:i+1, j:j+1 } 
+        if (gboard[i + 1][j - 1].mine) count++; //שמאלה באלכסון למטה
+        return count;
+    }
+    if(i===0){
+        gneighbors[I]={i:i + 1, j:j }
+        if (gboard[i + 1][j].mine) count++;//אחורה
+        gneighbors[I++]={i:i, j:j+1 }
+        if (gboard[i][j + 1].mine) count++;//ימינה
+        gneighbors[I++]={i:i, j:j+1 }  
+        if (gboard[i][j -1].mine) count++; //שמאלה
+        gneighbors[I++]={i:i+1, j:j+1 } 
+        if (gboard[i + 1][j + 1].mine) count++;//ימינה באלכסון למטה 
+        gneighbors[I++]={i:i+1, j:j+1 }           
+        if (gboard[i + 1][j - 1].mine) count++; //שמאלה באלכסון למטה
+         return count;
+    }
+    if(j===0){
+        gneighbors[I]={i:i - 1, j:j }
+        if (gboard[i - 1][j].mine) count++;//קדימה
+        gneighbors[I++]={i:i + 1, j:j }
+        if (gboard[i + 1][j].mine) count++;//אחורה
+        gneighbors[I++]={i:i, j:j+1 }
+        if (gboard[i][j + 1].mine) count++; //ימינה
+        gneighbors[I++]={i:i+1, j:j-1 }  
+       if(gboard[i-1][j+1].mine)count++//ימינה באלכסון למעלה
+       gneighbors[I++]={i:i+1, j:j+1 } 
+       if (gboard[i + 1][j + 1].mine) count++;//ימינה באלכסון למטה  
+       return count;
+    }
+    if(i===gboard.length-1){
+        gneighbors[I]={i:i - 1, j:j }
+        if (gboard[i - 1][j].mine) count++;//קדימה
+        gneighbors[I++]={i:i, j:j+1 }
+        if (gboard[i][j + 1].mine) count++;//ימינה
+        gneighbors[I++]={i:i, j:j-1 }
+        if (gboard[i][j - 1].mine) count++; //שמאלה
+        gneighbors[I++]={i:i+1, j:j-1 } 
+        if(gboard[i-1][j+1].mine)count++//ימינה באלכסון למעלה
+        gneighbors[I++]={i:i-1, j:j-1 }  
+        if (gboard[i - 1][j - 1].mine) count++; //שמאלה באלכסון למעלה
+        return count;
+    }
+     if(j===gboard.length-1){
+        gneighbors[I]={i:i - 1, j:j }
+        if (gboard[i - 1][j].mine) count++;//קדימה
+        gneighbors[I++]={i:i + 1, j:j }
+        if (gboard[i + 1][j].mine) count++;//אחורה
+        gneighbors[I++]={i:i, j:j-1 }
+        if (gboard[i][j - 1].mine) count++; //שמאלה
+        gneighbors[I++]={i:i-1, j:j-1 } 
+        if (gboard[i - 1][j - 1].mine) count++; //שמאלה באלכסון למעלה
+        gneighbors[I++]={i:i+1, j:j+1 } 
+        if (gboard[i + 1][j - 1].mine) count++; //שמאלה באלכסון למטה
+        return count;
+     }
+     gneighbors[I]={i:i - 1, j:j }
+    if (gboard[i - 1][j].mine) count++;//קדימה
+    gneighbors[I++]={i:i + 1, j:j }
+    if (gboard[i + 1][j].mine) count++;//אחורה
+    gneighbors[I++]={i:i, j:j+1 }
+    if (gboard[i][j + 1].mine) count++;//ימינה
+    gneighbors[I++]={i:i, j:j-1 }
+    if (gboard[i][j - 1].mine) count++;//שמאלה
+    gneighbors[I++]={i:i+1, j:j-1 }  
+    if (gboard[i + 1][j - 1].mine) count++;//שמאלה באלכסון למטה
+    gneighbors[I++]={i:i+1, j:j+1 }   
+    if (gboard[i + 1][j + 1].mine) count++; //ימינה באלכסון למטה
+    gneighbors[I++]={i:i-1, j:j-1 }  
+    if (gboard[i - 1][j - 1].mine) count++; //שמאלה באלכסון למעלה
+    gneighbors[I++]={i:i+1, j:j-1 }  
+    if(gboard[i-1][j+1].mine)count++//ימינה באלכסון למעלה
     return count;
 }
 
-function renderCell(location, value) {
-    var i = location.i;
-    var j = location.j;
-    var elCell = document.querySelector('.selected');
-    elCell.innerHTML = value;
-}
 
 function cellClicked(elcell) {
     var place = getCellCoord(elcell.id);
-    console.log(elcell)
     var i = place.i;
     var j = place.j;
-    console.log(place)
-    console.log(gboard[i][j].mine)
     if (gboard[i][j].mine) {
         gameOver()
         return;
     }
     var count = findMine(gboard, place)
-    // if(count===0) //לבדוק את השכנים של השכנים שלו
     if (count > 0) {
-        elcell.classList.add('selected');
         renderCell(place, count)
+    }else if(count===0){
+        if(firstClick){
+            firstClick=false;
+            getMineBoard()
+            startTimer()
+            return;
+        }else{
+            var neighbors=gneighbors.slice();
+            for(var i=0;i<neighbors.length;i++){
+                    count= findMine(gboard, neighbors[i])
+                    if(count>0) renderCell(neighbors[i], count)
+                }
+
+            }
+        }
+    
     }
 
-}
+
 
 function getCellCoord(strCellId) {
     var parts = strCellId.split('-')
@@ -129,20 +232,16 @@ function getCellCoord(strCellId) {
 
 
 function cellMarked(elCell, gboard) {
-    console.log(elCell);
-    console.log(elCell.id)
-    console.log('jj');
     var place = getCellCoord(elCell.id)
     var i = place.i;
     var j = place.j;
     if (gboard[i][j].isMarked) {
-        renderBoard(place, ' ')
+        renderCell(place, ' ')
         gboard[i][j].isMarked = false;
         return;
     }
     renderCell(place, FLAG)
-    if (gboard[i][j].mine) {
-        gGame.shownCount++;
+    gboard[i][j].isMarked=true;
         if (gGame.markedCount === SIZE / 2) {
             gameOver()
             return;
@@ -150,27 +249,23 @@ function cellMarked(elCell, gboard) {
         gGame.shownCount++;
     }
 
-}
+
 
 function gameOver() {
+    for(var i=0; i<gboard.length;i++){
+        for(var j=0;j<gboard[0].length;j++){
+            if(gboard[i][j].mine){
+                renderCell({i:i,j:j},MINE);
+            }
+        }
+    }
+    initTimer()
+    clearInterval(gTimerIntervalId);
+    console.log('game over!')
     gGame.isOn = false;
-    firstClick=true;
+    firstClick = true;
 }
 
-
-
-// function showRightClick()
-// {
-//     righClick.style.visibility='visible';
-//     righClick.style.display='';
-//     righClick.style.top=event.y;
-//     righClick.style.left=event.x;
-// }
-//function checkGameOver
-//
-
-//expandShown(board, elCell,
-// i, j)במקרה ואין שכנים
 
 
 
@@ -180,37 +275,65 @@ function getRandomIntInclusive(min, max) {
 }
 
 function getMineBoard() {
-    if(firstClick)firstClick=false;
-    else return;
-    for (var I = 0; I < SIZE / 2; I++) {
+    for (var I = 0; I < SIZE*SIZE/5; I++) {
         var i = getRandomIntInclusive(0, SIZE - 1);
         var j = getRandomIntInclusive(0, SIZE - 1);
-        gboard[i][j].mine = true;
+         console.log({i:i,j:j});
+         gboard[i][j].mine = true;
+    }
+}
+
+function renderCell(location, value) {
+    var elCell = document.querySelector(`.cell${location.i}-${location.j}`);
+    elCell.innerHTML = value;
+  }
+
+
+
+
+function initTimer() {
+    var elTimer = document.getElementById('timer');
+    elTimer.innerText = '00 : 00';
+}
+
+
+function startTimer() {
+    if (!gTimerIntervalId) {
+        gStartTimer = getTime();
+        gTimerIntervalId = setInterval(renderTimer, 10);
     }
 }
 
 
+function getTime() {
+    return Date.now();
+}
 
-// function isEmptyCell(coord) {
-//     return gBoard[coord.i][coord.j] === ''
-// }
+function renderTimer() {
+    var delta = getTime() - gStartTimer;
+    var time = timeFormatter(delta);
+    var elTimer = document.getElementById('timer');
+    elTimer.innerText = time;
+}
 
+function timeFormatter(timeInMilliseconds) {
+    var time = new Date(timeInMilliseconds);
+    var minutes = time.getMinutes().toString();
+    var seconds = time.getSeconds().toString();
+    var milliseconds = time.getMilliseconds().toString();
 
+    if (minutes.length < 2) {
+        minutes = '0' + minutes;
+    }
 
-//    function isEmptyCell(gboard){
-//    var emptyCell=[];
-//     for(var i=0;i<gboard.legth;i++){
-//         for(var j=0; j<gboard[i].legth;j++){
-//            if(gboard[i][j].mine===false) 
-//             console.log('nn')
-//              emptyCell[i]={i:i,j:j};
-//            }
-//         }
-//         return emptyCell;
-//     }
-//     initGame()
-//     console.log(isEmptyCell(gboard))
+    if (seconds.length < 2) {
+        seconds = '0' + seconds;
+    }
 
-// function onclick(event.button){
-//     if(eventbutton===1)
-// }
+    while (milliseconds.length < 3) {
+        milliseconds = '0' + milliseconds;
+    }
+
+    return minutes + ' : ' + seconds;
+
+}
